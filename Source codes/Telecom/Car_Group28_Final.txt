@@ -1,0 +1,354 @@
+#include <NewPing.h>
+#include <SoftwareSerial.h>
+#include <Servo.h>
+
+const int SPEED = 105; // Set motor speed
+const int LED_PIN = 13; // Define LED pin
+const int numReadings = 5; // Number of readings for moving average
+
+// Define motor control L298N pins
+const int EN_A = 2; // Front left 
+const int IN1 = 30;
+const int IN2 = 31;
+const int EN_B = 3; // Front right
+const int IN3 = 32;
+const int IN4 = 33;
+const int EN_C = 4; // Back left
+const int IN5 = 34;
+const int IN6 = 35;
+const int EN_D = 5; // Back right
+const int IN7 = 36;
+const int IN8 = 37;
+
+// Software serial, connected to JDY-31's TX and RX pins
+SoftwareSerial BTSerial(14, 15); 
+
+// Define the ultrasonic sensors with their respective trigger and echo pins
+NewPing frontSensor(22, 23); // Front sensor
+NewPing leftSensor(24, 25); // Left sensor
+NewPing rightSensor(26, 27); // Right sensor
+NewPing lowSensor(28, 29); // Low sensor
+
+// Define the 2 servo
+Servo servo; // Parallele
+Servo servo1;  // Vertical
+
+// Define arrays to store readings for moving average
+int readings_front[numReadings];
+int readings_left[numReadings];
+int readings_right[numReadings];
+int readings_low[numReadings];
+
+// Define index of readings
+int index_front = 0;
+int index_left = 0;
+int index_right = 0;
+int index_low = 0;
+
+// Distance in cm from different direction 
+int d_front = 0;
+int d_left = 0;
+int d_right = 0;
+int d_low = 0;
+
+int getDistance(NewPing& sensor, int* readings, int& index) {
+  // Get the distance from the readings of a certain sensor using moving window
+
+  int newReading = sensor.ping_cm();
+  
+  // Data range check
+  if (newReading >= 0 && newReading <= 200) {
+    // Update the array with the new reading
+    readings[index] = newReading;
+    index = (index + 1) % numReadings;
+    
+    // Calculate the moving average
+    int total = 0;
+    for (int i = 0; i < numReadings; i++) {
+      total += readings[i];
+    }
+    return total / numReadings;
+  } else {
+    // remove the invalid distance
+    return getDistance(sensor, readings, index);
+  }
+}
+
+void updateDistances() {
+  // Update the distances from all 4 sensors 
+
+  d_front = getDistance(frontSensor, readings_front, index_front);
+  d_left = getDistance(leftSensor, readings_left, index_left);
+  d_right = getDistance(rightSensor, readings_right, index_right);
+  d_low = getDistance(lowSensor, readings_low, index_low);
+
+  // Print the averaged distances
+  Serial.print("Front: ");
+  Serial.print(d_front);
+  Serial.println(" cm");
+
+  Serial.print("Left:  ");
+  Serial.print(d_left);
+  Serial.println(" cm");
+
+  Serial.print("Right: ");
+  Serial.print(d_right);
+  Serial.println(" cm");
+
+  Serial.print("Low:   ");
+  Serial.print(d_low);
+  Serial.println(" cm");
+
+  Serial.println();
+}
+
+void setSpeed(int v) {
+  // Set the speed of 4 motors
+
+  analogWrite(EN_A, v);
+  analogWrite(EN_B, v);
+  analogWrite(EN_C, v);
+  analogWrite(EN_D, v);
+}
+
+void halt(int t) {
+  // Stop for t milliseconds
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  digitalWrite(IN5, LOW);
+  digitalWrite(IN6, LOW);
+  digitalWrite(IN7, LOW);
+  digitalWrite(IN8, LOW);
+  delay(t);
+}
+
+void forward(int t) {
+  // Move forward for t milliseconds
+
+  setSpeed(SPEED - 50);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  digitalWrite(IN5, HIGH);
+  digitalWrite(IN6, LOW);
+  digitalWrite(IN7, HIGH);
+  digitalWrite(IN8, LOW);
+  delay(t);
+} 
+
+void backward(int t) {
+  // Move backword for t milliseconds
+
+  setSpeed(SPEED);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  digitalWrite(IN5, LOW);
+  digitalWrite(IN6, HIGH);
+  digitalWrite(IN7, LOW);
+  digitalWrite(IN8, HIGH);
+  delay(t);
+}
+
+
+void turnLeft(int t) {
+  // Rotate counter-clockwise for t milliseconds
+
+  setSpeed(SPEED + 30);   
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  digitalWrite(IN5, LOW);
+  digitalWrite(IN6, HIGH);
+  digitalWrite(IN7, HIGH);
+  digitalWrite(IN8, LOW);
+  delay(t);
+}
+
+void turnRight(int t) {
+  // Rotate clockwise for t milliseconds
+
+  setSpeed(SPEED + 30);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  digitalWrite(IN5, HIGH);
+  digitalWrite(IN6, LOW);
+  digitalWrite(IN7, LOW);
+  digitalWrite(IN8, HIGH);
+  delay(t);
+}
+
+void turnAround(int t) {
+  // Turn around for t milliseconds
+
+  setSpeed(SPEED + 50);
+  if (d_left > d_right) {
+    turnLeft(t);
+  } else {
+    turnRight(t);
+  }
+}
+
+void servo_turn() {
+  // Camera rotate
+
+  servo.write(90); // Front
+ 
+  servo.write(115);
+  delay(2000); 
+  servo.write(115);
+ 
+  servo.write(90);
+  delay(2000); 
+  servo.write(90);
+ 
+  servo.write(65);
+  delay(2000); 
+  servo.write(65);
+
+  servo.write(90);
+
+  delay(1000); 
+}
+
+void takePictures() {
+  // Take pictures of the object in front of the car 
+
+  delay(500);
+  servo1.write(115);
+  servo1.write(100);
+  delay(1000); 
+  servo_turn();
+  servo1.write(100);
+
+  servo1.write(115);
+  delay(1000); 
+  servo_turn();
+  delay(1000);
+}
+
+void detectTreasure() {
+  // Determine whether there is an object in front of the car 
+
+  halt(1000);
+  updateDistances();
+  //if (d_low <= 10 && d_front - d_low >= 3 ) {
+  if (d_low <= 15) {
+    digitalWrite(LED_PIN, HIGH);
+    Serial.println("Treasure detected!");
+    takePictures();
+    digitalWrite(LED_PIN, LOW);
+  }
+}
+
+void correctDirection() {
+  // Keep the car away from walls aside
+
+  int threshold = 10;
+  if (d_front > 25) threshold = 5;
+
+  updateDistances();
+  if (d_left < threshold) {
+    turnRight(100);
+    forward(400);
+  } 
+  else if (d_right < threshold) {
+    turnLeft(100);
+    forward(400);
+  }
+}
+
+void explore() {
+  // Explore the maze
+
+  int threshold = 30; // Maximal distance that triggers a turn
+  
+  updateDistances();
+  if (d_front < 10) backward(100);  
+  // Avoid bumping into the wall 
+
+  updateDistances();
+  if (d_front > 20) { // space in front
+    correctDirection();
+    forward(100);
+  }
+  else { 
+    // Wall in front detected
+    if (d_left > threshold) { 
+      // Space in left
+      turnLeft(200);
+    }
+    else { 
+      // Wall in left detected
+      if (d_right > threshold) {
+        // Space in right
+        turnRight(200);
+      } 
+      else {
+        // Walls in all three directions detected
+        detectTreasure();
+        turnAround(800); // Try to turn 180 degree
+      }
+    }
+  }
+}
+
+void setup() {
+
+  // Initialize Arduino serial communication
+  Serial.begin(9600);
+
+  //BTSerial.begin(9600); // Initialize Bluetooth serial communication
+
+  // Initialize camera set
+  servo.attach(9);
+  servo1.attach(10);
+  
+  // Initialize the arrays for moving averages
+  for (int i = 0; i < numReadings; i++) {
+    readings_front[i] = 20;
+    readings_left[i] = getDistance(leftSensor, readings_left, index_left);
+    readings_right[i] = getDistance(rightSensor, readings_right, index_right);
+    readings_low[i] = getDistance(lowSensor, readings_low, index_low);
+  }
+
+  // Initialize motor control L298N
+  pinMode(EN_A, OUTPUT);
+  pinMode(EN_B, OUTPUT);
+  pinMode(EN_C, OUTPUT);
+  pinMode(EN_D, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(IN5, OUTPUT);
+  pinMode(IN6, OUTPUT);
+  pinMode(IN7, OUTPUT);
+  pinMode(IN8, OUTPUT);
+}
+
+void loop() {
+  // Explore the maze
+
+  explore();
+
+  //debug();
+}
+
+void debug() {
+  // Send the current time to the Bluetooth module
+
+  unsigned long currentTime = millis();
+  BTSerial.print("Running Time (ms): ");
+  BTSerial.println(currentTime);
+
+  delay(1000);
+}

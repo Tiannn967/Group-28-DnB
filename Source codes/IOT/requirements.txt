@@ -1,0 +1,20 @@
+# Example requirements.txt for a Python project
+
+# Frameworks and Tools
+flask==2.1.0              # Web framework
+opencv-python==4.5.3.56   # Computer vision library
+ultralytics==0.0.2        # YOLO model and utilities
+
+# GUI and Visualization
+tkinter==8.6               # GUI toolkit
+Pillow==8.2.0              # Image processing library
+matplotlib==3.4.2          # Plotting library
+
+# Video Processing
+opencv-python-headless==4.5.3.56  # Headless version of OpenCV
+
+# HTTP requests
+requests==2.26.0
+
+# Other dependencies
+numpy==1.21.1              # Numerical computing library
