@@ -35,7 +35,7 @@ This project demonstrates real-time object detection using YOLOv8 (You Only Look
 
 1. **Clone the Repository**:
 git clone https://github.com/Tiannn967/Group-28-DnB.git
-cd Group-28-DnB
+cd Source codes/IOT
 2. **Install Dependencies**:
 pip install -r requirements.txt
 
